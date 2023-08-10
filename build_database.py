@@ -1,8 +1,8 @@
 import os
-from pathlib import Path
 import sqlite3
-import traceback
 import time
+import traceback
+from pathlib import Path
 
 import cv2
 from tqdm import tqdm
@@ -47,6 +47,7 @@ class SIFTDatabase:
         return self.sift.detectAndCompute(img_gray, None)
 
     def build(self, SZ: tuple[int, int] | None = None):
+        # sourcery skip: extract-method
         images = [
             p for p in self.images_path.glob("**/*") if p.suffix.lower() in self.EXTS
         ]
@@ -54,8 +55,9 @@ class SIFTDatabase:
         conn = sqlite3.connect(self.output_file)
         conn.execute("PRAGMA journal_mode=WAL;")
         with conn:
-            conn.execute("CREATE TABLE sift (id TEXT PRIMARY KEY, descriptors BLOB)")
             cursor = conn.cursor()
+            cursor.execute("CREATE TABLE sift (id TEXT PRIMARY KEY, descriptors BLOB)")
+            cursor.execute("CREATE TABLE properties (id TEXT UNIQUE, value TEXT)")
             insert_batch: list[tuple[str, bytes]] = []
             for image_path in tqdm(images):
                 try:
@@ -66,5 +68,12 @@ class SIFTDatabase:
                     tqdm.write("".join(traceback.format_exception(e)))
             cursor.executemany(
                 "INSERT INTO sift (id, descriptors) VALUES (?, ?)", insert_batch
+            )
+            cursor.executemany(
+                "INSERT INTO properties (id, value) VALUES (?, ?)",
+                [
+                    ("size", f"{SZ[0]}, {SZ[1]}"),
+                    ("build_date", int(time.time() * 1000)),
+                ],
             )
             conn.commit()
