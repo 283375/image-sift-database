@@ -6,7 +6,6 @@ import sqlite3
 import traceback
 import time
 
-import numpy as np
 import cv2
 from tqdm import tqdm
 
@@ -50,7 +49,9 @@ class SIFTDatabase:
         return self.sift.detectAndCompute(img_gray, None)
 
     def build(self, SZ: tuple[int, int] | None = None):
-        images = [p for p in self.images_path.glob("**/*") if p.suffix in self.EXTS]
+        images = [
+            p for p in self.images_path.glob("**/*") if p.suffix.lower() in self.EXTS
+        ]
 
         if self.output_file.endswith(".json"):
             output_dict = {}
@@ -83,6 +84,6 @@ class SIFTDatabase:
                     except Exception as e:
                         tqdm.write("".join(traceback.format_exception(e)))
                 cursor.executemany(
-                    'INSERT INTO sift (id, descriptors) VALUES (?, ?)', insert_batch
+                    "INSERT INTO sift (id, descriptors) VALUES (?, ?)", insert_batch
                 )
                 conn.commit()
