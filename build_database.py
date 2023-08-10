@@ -2,9 +2,11 @@ import os
 import sqlite3
 import time
 import traceback
+from io import BytesIO
 from pathlib import Path
 
 import cv2
+import numpy as np
 from tqdm import tqdm
 
 
@@ -63,7 +65,10 @@ class SIFTDatabase:
                 try:
                     img_gray = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
                     _, descriptors = self.sift_detectAndCompute(img_gray, SZ)
-                    insert_batch.append((image_path.stem, descriptors.tobytes()))
+                    buffer = BytesIO()
+                    np.save(buffer, descriptors)
+                    buffer.seek(0)
+                    insert_batch.append((image_path.stem, buffer.read()))
                 except Exception as e:
                     tqdm.write("".join(traceback.format_exception(e)))
             cursor.executemany(
