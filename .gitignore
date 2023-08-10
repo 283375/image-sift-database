@@ -1,0 +1,6 @@
+**/*
+
+!.git*
+!/build_database.py
+!/build.py
+!/README.md
