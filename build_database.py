@@ -10,6 +10,9 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
+# from pylance
+Mat = np.ndarray[int, np.dtype[np.generic]]
+
 
 class SIFTDatabase:
     EXTS = [".jpg", ".png"]
@@ -20,12 +23,14 @@ class SIFTDatabase:
         output_file: str = f"sift_{int(time.time())}.db",
         *,
         filename_hook: Optional[Callable[[Path], str]] = None,
+        img_hook: Optional[Callable[[Mat], Mat]] = None,
     ):
         self.__images_path = images_path
         self.__output_file = output_file
         self.__sift = cv2.SIFT_create()
 
         self.__filename_hook = filename_hook or (lambda p: p.stem)
+        self.__img_hook = img_hook
 
     @property
     def images_path(self):
@@ -54,12 +59,20 @@ class SIFTDatabase:
     @filename_hook.setter
     def filename_hook(self, value: Callable[[Path], str]):
         self.__filename_hook = value
+        
+    @property
+    def img_hook(self):
+        return self.__img_hook
 
-    def sift_detectAndCompute(self, __img_gray, SZ: tuple[int, int] | None = None):
-        img_gray = __img_gray.copy()
+    @img_hook.setter
+    def img_hook(self, value: Callable[[Mat], Mat]):
+        self.__img_hook = value
+
+    def sift_detectAndCompute(self, __img, SZ: tuple[int, int] | None = None):
+        img = __img.copy()
         if SZ is not None:
-            img_gray = cv2.resize(img_gray, SZ)
-        return self.sift.detectAndCompute(img_gray, None)
+            img = cv2.resize(img, SZ)
+        return self.sift.detectAndCompute(img, None)
 
     def build(self, SZ: tuple[int, int] | None = None):
         # sourcery skip: extract-method
@@ -78,8 +91,10 @@ class SIFTDatabase:
             insert_batch: list[tuple[str, bytes]] = []
             for image_path in tqdm(images):
                 try:
-                    img_gray = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
-                    _, descriptors = self.sift_detectAndCompute(img_gray, SZ)
+                    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+                    if self.img_hook:
+                        img = self.img_hook(img)
+                    _, descriptors = self.sift_detectAndCompute(img, SZ)
                     buffer = BytesIO()
                     np.save(buffer, descriptors)
                     buffer.seek(0)
