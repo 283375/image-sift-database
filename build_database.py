@@ -2,6 +2,7 @@ import os
 import sqlite3
 import time
 import traceback
+from gzip import GzipFile
 from io import BytesIO
 from pathlib import Path
 from typing import Callable, Optional
@@ -24,6 +25,7 @@ class SIFTDatabase:
         *,
         filename_hook: Optional[Callable[[Path], str]] = None,
         img_hook: Optional[Callable[[Mat], Mat]] = None,
+        gzip: int = 0,
     ):
         self.__images_path = images_path
         self.__output_file = output_file
@@ -31,6 +33,7 @@ class SIFTDatabase:
 
         self.__filename_hook = filename_hook or (lambda p: p.stem)
         self.__img_hook = img_hook
+        self.__gzip = gzip
 
     @property
     def images_path(self):
@@ -59,7 +62,7 @@ class SIFTDatabase:
     @filename_hook.setter
     def filename_hook(self, value: Callable[[Path], str]):
         self.__filename_hook = value
-        
+
     @property
     def img_hook(self):
         return self.__img_hook
@@ -67,6 +70,14 @@ class SIFTDatabase:
     @img_hook.setter
     def img_hook(self, value: Callable[[Mat], Mat]):
         self.__img_hook = value
+
+    @property
+    def gzip(self):
+        return self.__gzip
+
+    @gzip.setter
+    def gzip(self, value: int):
+        self.__gzip = value
 
     def sift_detectAndCompute(self, __img, SZ: tuple[int, int] | None = None):
         img = __img.copy()
@@ -96,7 +107,12 @@ class SIFTDatabase:
                         img = self.img_hook(img)
                     _, descriptors = self.sift_detectAndCompute(img, SZ)
                     buffer = BytesIO()
-                    np.save(buffer, descriptors)
+                    if self.gzip:
+                        gzipped_protocol_buffer = GzipFile(None, "wb", fileobj=buffer)
+                        np.save(gzipped_protocol_buffer, descriptors)
+                        gzipped_protocol_buffer.close()
+                    else:
+                        np.save(buffer, descriptors)
                     buffer.seek(0)
                     insert_batch.append((self.filename_hook(image_path), buffer.read()))
                 except Exception as e:
@@ -109,6 +125,7 @@ class SIFTDatabase:
                 "INSERT INTO properties (id, value) VALUES (?, ?)",
                 [
                     ("size", f"{SZ[0]}, {SZ[1]}"),
+                    ("gzip", self.gzip > 0),
                     ("build_date", int(time.time() * 1000)),
                 ],
             )
