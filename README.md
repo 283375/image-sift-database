@@ -1,6 +1,6 @@
 # image-sift-database
 
-Store your images SIFT descriptors using JSON/sqlite3.
+Store your images SIFT descriptors using sqlite3.
 
 ## Usage
 
@@ -15,11 +15,11 @@ SIFTDatabase().build((100, 100))
 It
 
 1. creates a time-named database file
-2. `CREATE TABLE sift (id TEXT PRIMARY KEY, descriptors BLOB)`
+2. `CREATE TABLE sift (id INTEGER PRIMARY KEY, tag TEXT, descriptors BLOB)`
 3. reads all the image files (ends with extension `.jpg`/`.png`) under `images/`
 4. resizes all the images to `100 * 100`
 5. calculates the image descriptors
-6. `INSERT INTO sift (id, descriptors) VALUES (?, ?)`, `[image_path.stem, descriptors.tobytes()]`
+6. `INSERT INTO sift (tag, descriptors) VALUES (?, ?)`, `[image_path.stem, descriptors.tobytes()]`
 7. `conn.commit()`
 
 ## API
